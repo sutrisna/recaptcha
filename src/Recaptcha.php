@@ -1,89 +1,94 @@
-<?php 
+<?php
+
 namespace Recaptcha;
-
-class Recaptcha
+use Recaptcha\CaptchaType;
+class Recaptcha implements RecaptchaInterface
 {
-    private $captchaText;
-    private $captchaNumber;
+    private static string $captchaText, $captchaNumber;
+    private const CAPTCHA_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
-    public function __construct(int $length)
+    public static function setCaptcha(int $length): void
     {
-        $this->captchaText = $this->generateCaptchaText($length);
-        $this->captchaNumber = $this->generateCaptchaNumber($length);
-    }
+        self::$captchaText = '';
+        self::$captchaNumber = '';
 
-
-    private function generateCaptchaText(int $length): string
-    {
-        $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        $captchaText = '';
+        $characterLength = strlen(self::CAPTCHA_CHARACTERS);
 
         for ($i = 0; $i < $length; $i++) {
-            $captchaText .= $characters[rand(0, strlen($characters) - 1)];
+            self::$captchaText .= self::CAPTCHA_CHARACTERS[rand(0, $characterLength - 1)];
         }
 
-        // $this->generateCaptchaImage($captchaText);
-
-        return $captchaText;
-    }
-
-    private function generateCaptchaNumber(int $length): string
-    {
-        session_start();  
-
-        $captcha = '';
         for ($i = 0; $i < $length; $i++) {
-            $captcha .= rand(0, 9);
+            self::$captchaNumber .= rand(0, 9);
         }
 
-        $_SESSION['captcha_code'] = $captcha;
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
 
-        // $this->generateCaptchaImage($captcha);
-
-        return $captcha;
+        $_SESSION['captcha_text'] = self::$captchaText;
+        $_SESSION['captcha_number'] = self::$captchaNumber;
     }
 
-    private function generateCaptchaImage(string $captcha): void
+    public static function getCaptcha(string $type): string
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['captcha_text']) || !isset($_SESSION['captcha_number'])) {
+            throw new \ErrorException("Set captcha terlebih dahulu");
+        }
+
+        $_SESSION['captcha_type'] = $type;
+
+        if ($type === CaptchaType::TEXT) {
+            return $_SESSION['captcha_text'];
+        }
+
+        if ($type === CaptchaType::NUMBER) {
+            return $_SESSION['captcha_number'];
+        }
+
+        throw new \InvalidArgumentException("Jenis captcha tidak dikenal");
+    }
+
+    public static function captchaImage(string $captcha): void
     {
         header('Content-Type: image/png');
         $image = imagecreatetruecolor(100, 50);
 
-
-        $bgColor = imagecolorallocate($image, 255, 255, 255);  // White background
+        $bgColor = imagecolorallocate($image, 255, 255, 255);
         imagefill($image, 0, 0, $bgColor);
 
-        $textColor = imagecolorallocate($image, 0, 0, 0);  // Black text
+        $textColor = imagecolorallocate($image, 0, 0, 0);
 
-        $font = 5;  
+        $font = 5;
         imagestring($image, $font, 10, 15, $captcha, $textColor);
 
         imagepng($image);
         imagedestroy($image);
+        exit;
     }
 
-    public function verifyCaptcha(string $inputText, string $type): bool
+    public static function verifyCaptcha(string $inputText): bool
     {
-        if ($type === 'text') {
-            return strtolower($inputText) === strtolower($this->captchaText);
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
         }
 
-        if ($type === 'number') {
-            return $inputText === $_SESSION['captcha_code'];
+        if (!isset($_SESSION['captcha_type'])) {
+            throw new \ErrorException("Session captcha type not set");
         }
 
-        return false;
-    }
-
-    public function getCaptcha(string $type): string
-    {
-        if ($type === 'text') {
-            return $this->captchaText;
+        if ($_SESSION['captcha_type'] === CaptchaType::TEXT) {
+            return strtolower($inputText) === strtolower($_SESSION['captcha_text'] ?? '');
         }
 
-        if ($type === 'number') {
-            return $this->captchaNumber;
+        if ($_SESSION['captcha_type'] === CaptchaType::NUMBER) {
+            return $inputText === ($_SESSION['captcha_number'] ?? '');
         }
 
-        return '';
+        throw new \InvalidArgumentException("Jenis captcha tidak valid");
     }
 }

@@ -1,8 +1,9 @@
 {
-    "name": "captcha/recaptcha",
+    "name": "captchaforce/recaptcha",
     "description": "Simple recaptcha package",
     "type": "library",
     "license": "MIT",
+    "version": "1.0.0",  
     "autoload": {
         "psr-4": {
             "Recaptcha\\": "src/"
@@ -13,6 +14,9 @@
             "name": "Helmi"
         }
     ],
-    "minimum-stability": "dev",
-    "require": {}
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require-dev": {
+        "phpunit/phpunit": "11.5.x-dev"
+    }
 }
